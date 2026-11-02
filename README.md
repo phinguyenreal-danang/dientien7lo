@@ -1,77 +1,119 @@
-# 68 PROPERTY — LANDING ĐIỆN TIẾN (GitHub Pages + Telegram)
+# Đất Điện Tiến, Điện Bàn Bắc, Đà Nẵng – Gần cầu Quảng Đà | 68 Property
 
-**Mục tiêu:** Landing đọc nhanh, ảnh thực địa, SEO cho Điện Tiến – Điện Bàn Bắc – Đà Nẵng. Đăng ký nhận hồ sơ/tư vấn qua Cloudflare Worker → Telegram.
+**Tìm hiểu vị trí đất Điện Tiến tại phường Điện Bàn Bắc, TP. Đà Nẵng:** xem hình ảnh thực địa, đường tiếp cận, sơ đồ tham khảo, góc nhìn hạ tầng đến năm 2031 và đăng ký nhận hồ sơ để được tư vấn đầu tư bất động sản. Nội dung do **68 Property** giới thiệu, với ưu tiên minh bạch dữ kiện và kiểm tra thông tin trước giao dịch.
 
-## Tệp cần biết
+**Website dự kiến sau khi bật GitHub Pages:** [Điện Tiến – 68 Property](https://phinguyenreal-danang.github.io/dientien7lo/)  
+**Kho mã nguồn:** [github.com/phinguyenreal-danang/dientien7lo](https://github.com/phinguyenreal-danang/dientien7lo)
 
-- `site/index.html`, `site/assets/style.css`, `site/assets/app.js`: giao diện tĩnh, chỉnh nội dung tại đây.
-- `site/config.js`: CHỈ gồm 2 giá trị công khai — Turnstile **SITE KEY** và HTTPS Worker API URL. Tuyệt đối KHÔNG ghi Bot Token ở đây.
-- `worker/worker.js`: API an toàn tách khỏi GitHub Pages; bảo vệ secrets ở Cloudflare.
-- `.github/workflows/deploy.yml`: tự tạo `dist` và deploy GitHub Pages khi push lên nhánh `main`.
-- `scripts/build.mjs`: tự chèn canonical, OG URL, JSON-LD, robots.txt, sitemap.xml dựa vào GitHub repository; hỗ trợ `SITE_URL` nếu dùng domain riêng.
-- `site/chinh-sach-bao-mat.html`: **bắt buộc điền đơn vị quản lý dữ liệu thật** trước khi công khai.
-- `tests/`: kiểm tra nội bộ, ảnh preview.
+> **Lưu ý:** Liên kết website chỉ hoạt động sau khi GitHub Pages được triển khai thành công. Thông tin trong tài liệu không thay thế hồ sơ pháp lý, tư vấn đầu tư cá nhân hay xác nhận tình trạng còn bán.
 
-## 1) Đưa website lên GitHub Pages
+![Ảnh xem trước landing page 68 Property giới thiệu đất Điện Tiến gần cầu Quảng Đà](previews/desktop_hero.png)
 
-1. Giải nén và tải **nội dung thư mục này** lên repository GitHub (để `.github/`, `site/`, `worker/`, `scripts/` ở gốc repo). Đặt nhánh `main`.
-2. Vào repository → **Settings → Pages → Source: GitHub Actions**.
-3. Vào **Actions** xem workflow `Deploy GitHub Pages SEO landing` tự chạy sau push. URL thường là `https://USERNAME.github.io/REPO/`.
-4. Nếu dùng domain riêng, thêm biến repository `SITE_URL` tại **Settings → Secrets and variables → Actions → Variables**, ví dụ `https://dientien.example.com/`, và cấu hình domain trong Settings → Pages.
-5. Đăng lại sau mỗi chỉnh nội dung/URL để sitemap, canonical và OG đồng bộ. Bản `site/` là source; không upload `dist/` hoặc token vào GitHub.
+## Tổng quan dự án đất Điện Tiến
 
-**Lưu ý:** Website tĩnh sẽ hiển thị ngay cả khi chưa cài Telegram, nhưng form sẽ CHƯA gửi được. GitHub Pages không chạy server, PHP hay Cloudflare Pages Functions.
+Khu đất được giới thiệu nằm tại **Điện Tiến, phường Điện Bàn Bắc, thành phố Đà Nẵng**. Tài liệu khảo sát cung cấp cho dự án mô tả vị trí **cách cầu Quảng Đà khoảng 200 m**. Đây là khoảng cách tham khảo, cần đo và đối chiếu với đúng thửa đất, tuyến đường tiếp cận và hồ sơ địa chính.
 
-## 2) Kết nối Telegram qua Cloudflare Worker (bắt buộc nếu muốn nhận lead)
+Bộ tư liệu hiện có gồm ảnh đất trống, hình ảnh đường bê tông tiếp cận và sơ đồ định vị. Trang giới thiệu tập trung giúp người quan tâm chủ động tìm hiểu thông tin trước khi đặt lịch xem đất:
 
-1. Trong Telegram tạo bot bằng BotFather hoặc dùng bot dành riêng cho team; lấy **Bot Token** và ID chat/nhóm được phép nhận lead. Không chia sẻ token công khai hoặc đưa vào repo.
-2. Mở Cloudflare → **Workers & Pages → Create Worker**; đưa nội dung `worker/worker.js` vào và deploy. Xem URL dạng `https://ten-worker.TAIKHOAN.workers.dev`.
-3. Worker → **Settings → Variables and Secrets**. Thêm dưới dạng **Secrets**:
-   - `TELEGRAM_BOT_TOKEN`: token bot Telegram.
-   - `TELEGRAM_CHAT_ID`: chat ID cá nhân/nhóm mà bot đã được thêm và có quyền gửi.
-   - `TURNSTILE_SECRET_KEY`: secret từ Cloudflare Turnstile, không phải site key.
-   - `HASH_PEPPER`: chuỗi ngẫu nhiên dài 32 ký tự trở lên (dùng băm khi bật KV).
-   - `ALLOWED_ORIGIN`: **origin** của trang GitHub Pages, ví dụ `https://USERNAME.github.io` (KHÔNG có `/REPO/`); hoặc origin domain riêng, ví dụ `https://dientien.example.com`.
-   - Tùy chọn `TELEGRAM_THREAD_ID`: mã chủ đề forum nếu gửi vào topic.
-4. Turnstile → Create Widget, chọn tên miền **`USERNAME.github.io`** hoặc domain riêng, lấy **Site Key** và **Secret Key**. Trong `site/config.js`, điền `turnstileSiteKey` với Site Key công khai và `apiEndpoint` là URL Worker đầy đủ **`https://ten-worker.TAIKHOAN.workers.dev/api/lead`**.
-5. **Khuyến nghị** Cloudflare KV → Create namespace `LEAD_GUARD`, gắn vào Worker đúng tên `LEAD_GUARD` để hạn chế gửi trùng và 5 yêu cầu/IP/giờ ở mức best-effort. KV không bảo đảm khóa tuyệt đối khi nhiều yêu cầu đồng thời. Để tăng bảo vệ có thể bật WAF / Rate Limiting của Cloudflare tại Worker.
-6. Commit `site/config.js`, chờ GitHub Actions deploy rồi mở trang thật, điền form thử bằng dữ liệu của chính team (đã đồng ý), kiểm tra tin nhắn đến Telegram.
+- **Vị trí & kết nối:** tra cứu khu vực Điện Tiến – Điện Bàn Bắc, cầu Quảng Đà và các tuyến đường thực tế.
+- **Ảnh thực địa:** tham khảo nhiều góc nhìn của khu đất, không thay ảnh hiện trạng bằng phối cảnh quảng cáo.
+- **Danh sách sản phẩm:** 7 mã lô tham khảo từ bảng hàng nội bộ; diện tích, giá, pháp lý và trạng thái giao dịch cần xác nhận theo từng mã.
+- **Tư vấn:** đăng ký họ tên, số điện thoại và nhu cầu để nhận thông tin được phép chia sẻ và hẹn khảo sát thực tế.
 
-**Quy tắc quan trọng:** bot Telegram chỉ ở Worker Secret; tuyệt đối không để ở JS/HTML/git. Form không chạy trên `file://`; cần HTTPS GitHub Pages thực tế và thiết lập Turnstile đúng hostname. Giữ nhóm Telegram riêng tư, hạn chế thành viên và phân quyền, có quy trình xóa thông tin theo yêu cầu.
+### Tầm nhìn hạ tầng và khu công nghiệp VSIP Đà Nẵng đến năm 2031
 
-## 3) Kiểm tra SEO trước khi đưa quảng cáo
+Theo thông tin công bố về **khu công nghiệp VSIP Đà Nẵng**, dự án có quy mô khoảng **249,8 ha**, tổng vốn đầu tư công bố khoảng **3.730 tỷ đồng**, với lộ trình triển khai và đưa vào khai thác **dự kiến đến quý IV/2031**. Đây là dữ kiện hạ tầng đáng theo dõi trong quá trình nghiên cứu Điện Bàn Bắc.
 
-- Google Search Console: xác minh trang công khai, gửi `sitemap.xml` tại root đường dẫn repo (ví dụ `https://USERNAME.github.io/REPO/sitemap.xml`).
-- Xem View Source để kiểm tra canonical và OG dùng **URL đã deploy**, không chứa `example.invalid`.
-- Facebook Sharing Debugger: kiểm tra OpenGraph, ảnh `og-dien-tien.jpg`.
-- Nội dung chứa một H1 và các H2/H3, alt ảnh, FAQ JSON-LD, title/description, liên kết nguồn.
-- Nếu bật domain riêng, cần cập nhật SITE_URL rồi deploy lại, không dùng lẫn tên miền cũ.
-- Kiểm tra chính sách bảo mật, giấy phép dùng ảnh, vị trí, pháp lý, giá và tình trạng mã lô trước công khai.
+Nếu khu công nghiệp hoàn thành, thu hút doanh nghiệp và tạo thêm việc làm đúng tiến độ, khu vực có thể phát sinh thêm nhu cầu **nhà ở, thuê trọ, lưu trú, ăn uống, bán lẻ và dịch vụ thiết yếu**. Tuy nhiên, **số lượng công nhân tương lai, nhu cầu thuê thực tế, giá bất động sản và khả năng sinh lời hiện chưa thể xác nhận**. Khu đất giới thiệu không được mặc nhiên xem là nằm trong khu công nghiệp hoặc được bảo đảm hưởng lợi.
 
-## 4) Nội dung đầu tư — không biến giả định thành thông tin thật
+Kết nối giao thông qua cầu Quảng Đà cũng cần đánh giá theo **trạng thái đường dẫn và các tuyến tiếp cận tại thời điểm khảo sát**, thay vì coi toàn bộ hạ tầng đã hoàn thiện.
 
-- Thông tin nguồn: Quyết định 3276/QĐ-UBND về KCN VSIP Đà Nẵng, quy mô 249,8 ha, 3.730 tỷ VND, lộ trình đến quý IV/2031. [Cổng thông tin Đà Nẵng](https://cttdt.danangportal.gov.vn/en/web/dng/w/chap-thuan-chu-truong-dau-tu-du-an-khu-cong-nghiep-vsip-da-nang-quy-mo-gan-250-ha)
-- Cầu Quảng Đà: theo tin tháng 10/2026, đường dẫn phía Điện Bàn Bắc vẫn chưa hoàn thành; không khẳng định mọi tuyến đã thuận tiện. [Tiền Phong](https://svvn.tienphong.vn/da-nang-cau-da-xong-sao-nguoi-dan-chat-vat-di-vong-post1886253.tpo)
-- Không khẳng định số công nhân, doanh thu cho thuê, quy hoạch chi tiết, tăng giá chắc chắn hoặc khan hiếm tuyệt đối nếu không có chứng cứ.
-- Bảy mã ĐT1-1 ... ĐT1-7 lấy từ **bảng hàng nội bộ**, chưa thay cho sổ, bản đồ địa chính, giá mới nhất hoặc trạng thái tồn kho.
+**Người mua nên kiểm tra:** giá theo ngày cập nhật, loại đất, diện tích được công nhận, quy hoạch sử dụng đất, đường tiếp cận, khả năng xây dựng/khai thác và các khoản chi phí trước khi ra quyết định.
 
-## 5) Checklist nghiệm thu trước xuất bản
+### Vì sao nên xem hồ sơ và khảo sát thực tế?
 
-- [ ] Xác nhận quyền dùng ảnh thật và sơ đồ.
-- [ ] Xác minh số lô, diện tích, trạng thái giao dịch, giá bán và hồ sơ pháp lý.
-- [ ] Bổ sung tên pháp nhân + địa chỉ + email đầu mối dữ liệu cá nhân trong `site/chinh-sach-bao-mat.html`.
-- [ ] Đặt chính xác `ALLOWED_ORIGIN`, Turnstile hostname, worker API URL.
-- [ ] Thử gửi form thực tế trên **tên miền công khai** và nhận đúng Telegram.
-- [ ] Kiểm tra smartphone, Facebook mở link, Google Search Console, nội dung chia sẻ.
+Thông tin hình ảnh và bản đồ giúp sàng lọc bất động sản từ xa, nhưng quyết định đầu tư cần căn cứ vào **hồ sơ thửa đất và tình trạng thực tế**. 68 Property hướng tới quá trình tư vấn có đối chiếu, không sử dụng thông điệp “chắc chắn tăng giá”, “cam kết lợi nhuận” hoặc “sắp hết hàng” nếu không có bằng chứng cập nhật.
 
-## Test local
+**Xem thông tin và đăng ký nhận hồ sơ:** [Mở trang giới thiệu đất Điện Tiến](https://phinguyenreal-danang.github.io/dientien7lo/).
 
-```bash
-node --test tests/*.test.mjs
-GITHUB_REPOSITORY='username/ten-repo' node scripts/build.mjs
-python3 -m http.server 8000 --directory dist
+## Câu hỏi thường gặp
+
+**Đất Điện Tiến nằm ở đâu?**  
+Khu đất được giới thiệu thuộc Điện Tiến, phường Điện Bàn Bắc, TP. Đà Nẵng. Vị trí chính xác của từng lô cần kiểm tra trên hồ sơ và bản đồ được xác nhận.
+
+**Khu đất cách cầu Quảng Đà bao xa?**  
+Tài liệu khảo sát ghi khoảng 200 m; số liệu chưa thay thế phép đo tuyến đường và vị trí thực tế.
+
+**VSIP Đà Nẵng đã đi vào hoạt động chưa?**  
+Theo hồ sơ nguồn năm 2026, mốc đến quý IV/2031 là **dự kiến theo tiến độ**, không phải xác nhận khu công nghiệp đã vận hành hoặc có số lượng lao động cụ thể.
+
+**Có thể xem diện tích, giá và pháp lý của 7 lô ở đâu?**  
+Bảng hàng nội bộ có các mã tham khảo, nhưng thông tin chính thức cần đội ngũ phụ trách xác nhận theo thời điểm hỏi và giấy tờ từng thửa trước khi công khai.
+
+**Làm sao nhận hồ sơ tư vấn?**  
+Truy cập landing page, điền thông tin vào form và chấp thuận việc liên hệ tư vấn. Form chỉ hoạt động sau khi API Cloudflare Worker và Telegram được cấu hình đúng và kiểm thử thực tế.
+
+---
+
+## Thông tin kỹ thuật website
+
+Website được xây dựng bằng **HTML, CSS, JavaScript**, xuất bản tĩnh trên **GitHub Pages**, tối ưu đọc trên điện thoại. Form nhận nhu cầu tư vấn sử dụng **Cloudflare Worker** làm backend riêng để gửi thông báo đến nhóm Telegram. **Không đặt Telegram Bot Token trong HTML, JS hoặc repository công khai.**
+
+### Cấu trúc mã nguồn
+
+```text
+.github/workflows/deploy.yml  # GitHub Actions xuất bản Pages
+site/index.html               # Landing page công khai
+site/assets/                 # Hình ảnh WebP, CSS, JS
+site/config.js               # Cấu hình công khai: Worker URL, Turnstile site key
+site/robots.txt              # Chính sách crawler, liên kết sitemap
+site/sitemap.xml             # Sitemap nguồn, tự thay URL khi build
+site/chinh-sach-bao-mat.html  # Chính sách dữ liệu cá nhân
+scripts/build.mjs            # Tạo thư mục dist và URL SEO theo tên miền
+worker/worker.js             # API form và Telegram (secrets ở Cloudflare)
+tests/                       # Bài kiểm thử
 ```
 
-**Đã kiểm chứng:** kiểm thử mã JS, bản dựng, kiểm thử API mô phỏng, hiển thị trên Chromium (xem `tests/QA_REPORT.md`).
+### Cách xuất bản lên GitHub Pages
 
-**Chưa kiểm chứng:** Cloudflare Worker và Telegram thực tế, hiệu năng mạng khách hàng, dữ liệu pháp lý, khả năng chuyển đổi thực tế. Không coi mock test là gửi thật.
+1. Đưa **nội dung các thư mục ở gốc repository** lên nhánh `main`, bao gồm thư mục `.github` ẩn. Không upload nguyên file ZIP để chạy trực tiếp.
+2. Trong repository, mở **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. Vào tab **Actions**, chờ workflow `Deploy GitHub Pages SEO landing` hoàn tất.
+4. Kiểm tra URL chính thức: <https://phinguyenreal-danang.github.io/dientien7lo/>.
+5. Nếu dùng tên miền riêng, đặt biến repository `SITE_URL` với URL HTTPS đầy đủ (có dấu `/` cuối), sau đó chạy lại workflow để cập nhật canonical, OpenGraph, sitemap và robots.
+6. Cấu hình riêng Cloudflare Worker, Telegram và Turnstile theo hướng dẫn trong mã nguồn; thử gửi form thật trước khi chạy quảng cáo.
+
+### SEO cho Google và Bing: những việc cần làm sau khi website hoạt động
+
+**README giới thiệu repository không tự khiến landing page được Google/Bing lập chỉ mục.** Công cụ tìm kiếm cần truy cập được URL website công khai. Dự án đã chuẩn bị tiêu đề, mô tả, nội dung tiếng Việt, HTML có H1/H2, ảnh có alt, dữ liệu có cấu trúc, canonical, OpenGraph và `sitemap.xml`. Tệp `robots.txt` có trong gói, nhưng trên GitHub Pages dạng `/dientien7lo/` nó nằm ở **đường dẫn con**, không phải `/robots.txt` tại gốc hostname: theo quy tắc Google, tệp ở đường dẫn con **không điều khiển crawler**; muốn quản lý robots.txt đầy đủ nên dùng tên miền riêng và đặt tại gốc domain.
+
+- **Google Search Console:** tạo thuộc tính *URL-prefix* theo URL website; xác minh sở hữu, gửi `https://phinguyenreal-danang.github.io/dientien7lo/sitemap.xml`; dùng **URL Inspection → Request indexing** với trang chủ sau khi xác minh.
+- **Bing Webmaster Tools:** thêm và xác minh website hoặc nhập thuộc tính từ Search Console; gửi cùng sitemap; dùng **URL Inspection** để kiểm tra trang và **URL Submission** nếu cần. IndexNow là tùy chọn phù hợp hơn khi có quyền quản lý tên miền và vị trí đặt tệp xác minh.
+- **Kiểm tra kỹ thuật:** mở `sitemap.xml`, xem View Source để bảo đảm canonical/og:url/og:image là URL thật (không còn `example.invalid`); trang trả về HTTP 200, có thể truy cập trên thiết bị không đăng nhập. Với GitHub Pages dạng thư mục con, không coi `.../dientien7lo/robots.txt` là robots.txt tại gốc host.
+- **Nội dung:** cập nhật khi pháp lý, giá, ảnh và tiến độ hạ tầng thay đổi; tạo liên kết tự nhiên từ website và các trang BĐS/Facebook công khai. Không nhồi nhét từ khóa hoặc đăng các bản sao y hệt ở nhiều URL.
+- **Theo dõi:** xem báo cáo Indexing và Performance; việc gửi sitemap/yêu cầu lập chỉ mục không bảo đảm sẽ xuất hiện hoặc đạt vị trí cao ngay.
+
+Hướng dẫn thao tác từng bước: [SEO_GOOGLE_BING.md](SEO_GOOGLE_BING.md).
+
+### Từ khóa nội dung tham khảo
+
+`đất Điện Tiến` · `đất Điện Bàn Bắc` · `đất gần cầu Quảng Đà` · `bất động sản Đà Nẵng` · `xem đất Điện Tiến` · `VSIP Đà Nẵng 2031`.
+
+Các cụm từ này dùng để biên tập nội dung có ích, **không phải thẻ meta keywords để nhồi từ khóa**.
+
+### Nguồn tham khảo và kiểm chứng
+
+- [Thông tin công bố về KCN VSIP Đà Nẵng – Cổng thông tin Đà Nẵng](https://cttdt.danangportal.gov.vn/en/web/dng/w/chap-thuan-chu-truong-dau-tu-du-an-khu-cong-nghiep-vsip-da-nang-quy-mo-gan-250-ha)
+- [Thông tin cầu Quảng Đà và đường dẫn – Tiền Phong](https://svvn.tienphong.vn/da-nang-cau-da-xong-sao-nguoi-dan-chat-vat-di-vong-post1886253.tpo)
+- Ảnh thực địa, file vị trí và bảng hàng nội bộ do nhóm dự án cung cấp; **chưa thay thế tài liệu pháp lý được kiểm chứng**.
+- [Google Search Central – SEO Starter Guide](https://developers.google.com/search/docs/fundamentals/seo-starter-guide)
+- [Bing Webmaster Tools – Sitemaps](https://www.bing.com/webmasters/help/sitemaps-3b5cf6ed)
+
+### Bảo mật, dữ liệu cá nhân và tình trạng nghiệm thu
+
+- Bổ sung đơn vị quản lý dữ liệu và thông tin liên hệ thật trong trang chính sách bảo mật **trước khi công khai**.
+- Các biến `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TURNSTILE_SECRET_KEY`, `HASH_PEPPER` phải ở **Cloudflare Secrets**, không commit vào GitHub.
+- Kiểm tra quyền sử dụng ảnh, bảng hàng, loại đất và hồ sơ từng lô trước khi quảng bá.
+- Test offline không thay thế kiểm thử gửi Telegram thật, kiểm tra lập chỉ mục hoặc đo hiệu suất thực tế trên tên miền đã triển khai.
+
+**Đơn vị giới thiệu:** 68 Property · **Chủ đề:** Đất Điện Tiến – Điện Bàn Bắc – cầu Quảng Đà, Đà Nẵng.
