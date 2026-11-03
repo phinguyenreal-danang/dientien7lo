@@ -122,8 +122,11 @@
       if (res.status === 404) return 'ROUTE-404';
       if (!res.ok) return 'HEALTH-HTTP';
       const data = await res.json().catch(() => null);
-      if (data?.service === '68property-leads' && data?.ok === true) return 'POST-CORS';
-      return 'WORKER-OLD';
+      if (data?.service !== '68property-leads' || data?.ok !== true) return 'WORKER-OLD';
+      if (data?.originAllowed === false) return 'ORIGIN-DENIED';
+      if (data?.configured === false) return 'CONFIG-MISSING';
+      if (typeof data?.originAllowed !== 'boolean') return 'WORKER-OLD';
+      return 'POST-FAILED';
     } catch { return 'NET-CORS'; }
     finally { window.clearTimeout(timeout); }
   }
@@ -257,6 +260,8 @@
       } finally { window.clearTimeout(timeout); }
       const result = await res.json().catch(() => ({}));
       if (res.status === 404) throw new Error('Không tìm thấy đường dẫn API trên Worker. Vào Cloudflare → Edit code, cập nhật worker.js mới, rồi kiểm tra /health.');
+      if (res.status === 503 && result.code === 'CONFIG_MISSING')
+        throw new Error('Hệ thống tư vấn đang được thiết lập. Vui lòng liên hệ trực tiếp bộ phận phụ trách (mã CONFIG_MISSING).');
       if (!res.ok || !result.ok) throw new Error(result.message || `Hệ thống trả về HTTP ${res.status}. Vui lòng kiểm tra cấu hình Worker.`);
       setStatus(result.duplicate ? 'Yêu cầu của bạn đã được tiếp nhận trước đó. Bộ phận phụ trách sẽ liên hệ khi xử lý.' : 'Đã gửi yêu cầu thành công. Cảm ơn bạn! Bộ phận phụ trách sẽ liên hệ để trao đổi hồ sơ.', 'success');
       form.reset();
@@ -267,14 +272,16 @@
         const reason = await checkWorkerHealth(api.url);
         // Never show Safari's raw "Load failed" or leak name/phone in diagnostics.
         const messages = {
+          'CONFIG-MISSING': 'Worker đang chạy nhưng thiếu cấu hình trong Cloudflare Worker Settings.',
           'ROUTE-404': 'Worker chưa cập nhật mã mới: /health trả về 404.',
           'HEALTH-HTTP': 'Worker đang trả lỗi cho /health; cần xem trạng thái triển khai.',
           'WORKER-OLD': 'Đang kết nối nhầm Worker hoặc Worker chưa cập nhật mã mới.',
-          'POST-CORS': 'Worker có phản hồi /health, nhưng POST bị chặn hoặc ngắt. Kiểm tra CORS/OPTIONS và ALLOWED_ORIGIN.',
+          'ORIGIN-DENIED': 'Cloudflare Worker không cho phép tên miền đang mở website. Đặt ALLOWED_ORIGIN = https://phinguyenreal-danang.github.io',
+          'POST-FAILED': 'Worker hoạt động nhưng POST bị chặn/ngắt. Kiểm tra CORS/OPTIONS, Worker Logs hoặc lỗi kết nối.',
           'NET-CORS': 'Không truy cập được Worker hoặc bị chặn bởi CORS/DNS/mạng. Kiểm tra URL API và ALLOWED_ORIGIN.'
         };
         // A failed POST might already have reached Telegram. Do not suggest immediate retries.
-        setStatus('Không thể xác nhận đã gửi yêu cầu (mã ' + reason + '). Vui lòng liên hệ bộ phận tư vấn hoặc kiểm tra lại trước khi gửi lần nữa.');
+        setStatus('Không thể xác nhận đã gửi yêu cầu (mã ' + reason + '). Hãy mở trang Kiểm tra API hoặc liên hệ bộ phận tư vấn trước khi gửi lần nữa.');
         console.warn('[68Property lead transport]', reason, messages[reason]);
       } else {
         // Only controlled server messages should appear: do not show arbitrary raw browser errors.
