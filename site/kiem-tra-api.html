@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Kiểm tra kết nối API – 68 Property</title><style>body{max-width:740px;margin:3rem auto;padding:0 18px;font:16px/1.7 system-ui;color:#19362e}button{background:#164638;color:white;border:0;padding:12px 18px;border-radius:10px;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:18px;border-radius:12px;background:#edf5f0}small{color:#4b645e}</style></head><body><h1>Kiểm tra API nhận hồ sơ</h1><p>Trang này chỉ kiểm tra đường dẫn Worker và <code>/health</code>, <strong>không gửi tên, số điện thoại hay thông tin khách</strong>.</p><p id="host"></p><button id="check">Kiểm tra kết nối</button><pre id="result" role="status" aria-live="polite">Bấm nút kiểm tra.</pre><small>Không nhập Telegram Bot Token, Turnstile Secret Key hay HASH_PEPPER trên trang này. /health không xác minh Telegram đã cấu hình đúng.</small><script src="./config.js"></script><script>
+const result=document.getElementById('result'); const config=window.DT_CONFIG||{};
+const raw=String(config.apiEndpoint||'').trim();
+document.getElementById('host').textContent='Website: '+location.origin+' | API: '+(raw||'CHƯA CẤU HÌNH');
+document.getElementById('check').addEventListener('click',async()=>{
+  if(!raw||/REPLACE_|TEN-TAI-KHOAN|YOUR[_-]SUBDOMAIN/i.test(raw)){result.textContent='CONFIG-API: Chưa điền URL Worker thật trong site/config.js';return;}
+  let url;try {url=new URL(raw);if(url.protocol!=='https:')throw Error();}catch{result.textContent='CONFIG-URL: URL không hợp lệ';return;}
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),5000);
+  result.textContent='Đang kiểm tra GET /health (không gửi dữ liệu khách)...';
+  try{const r=await fetch(new URL('/health',url).toString(),{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',signal:controller.signal});const j=await r.json().catch(()=>({}));result.textContent=JSON.stringify({http:r.status,service:j.service||null,version:j.version||null,ok:j.ok||false},null,2)+(r.ok?'\nKết nối /health thành công. Cần gửi một lead thử để xác minh Telegram.':'\nWorker trả lỗi hoặc chạy nhầm phiên bản.');}
+  catch(e){result.textContent='NET-CORS: Không truy cập được /health. Kiểm tra worker URL, trạng thái Worker và ALLOWED_ORIGIN = '+location.origin+'. (Lỗi mạng/CORS không xác định được chính xác từ trình duyệt.)';}
+  finally{clearTimeout(timer);}
+});
+</script></body></html>

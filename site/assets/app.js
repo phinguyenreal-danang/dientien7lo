@@ -4,7 +4,24 @@
   const $ = (id) => document.getElementById(id);
   const config = window.DT_CONFIG || {};
   const noMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const isPlaceholder = (value) => !value || String(value).includes('REPLACE_');
+  const isPlaceholder = (value) => !value || /REPLACE_|TEN-TAI-KHOAN|YOUR[_-]SUBDOMAIN|SUBDOMAIN_THAT|example\.invalid|<[^>]+>/i.test(String(value));
+  // Accept the real Worker base URL or its canonical /api/lead endpoint.
+  // Refuse example domains and incorrect paths before sending customer information.
+  function resolveLeadApiEndpoint(raw) {
+    if (isPlaceholder(raw)) return { error: 'Chưa nhập địa chỉ Worker thật. Mở site/config.js và thay TEN-TAI-KHOAN bằng subdomain Cloudflare của bạn.' };
+    let url;
+    try { url = new URL(String(raw).trim()); }
+    catch { return { error: 'URL API không hợp lệ. Hãy dán URL Worker từ Cloudflare → Settings → Domains & Routes.' }; }
+    if (url.protocol !== 'https:' || url.username || url.password || url.hash || url.search ||
+        /(^|\.)(example\.(com|org|net)|invalid|test)$/.test(url.hostname)) {
+      return { error: 'Địa chỉ Worker phải là URL HTTPS thật, không chứa tham số, tài khoản hoặc URL ví dụ.' };
+    }
+    const path = url.pathname.replace(/\/+$/,'') || '/';
+    if (path === '/') url.pathname = '/api/lead';
+    else if (path === '/api/lead') url.pathname = '/api/lead';
+    else return { error: 'Sai đường dẫn API. Hãy dùng URL Worker gốc hoặc URL kết thúc bằng /api/lead.' };
+    return { url: url.toString() };
+  }
   const safeScroll = (el) => el?.scrollIntoView({ behavior: noMotion ? 'auto' : 'smooth', block: 'start' });
 
   // Mobile menu
@@ -91,6 +108,27 @@
     formStatus.textContent = message;
     formStatus.dataset.type = kind;
   };
+  // GET /health never includes form fields or credentials. Used only after a
+  // fetch failure, to separate old Worker code from a network/CORS problem.
+  async function checkWorkerHealth(apiUrl) {
+    const healthUrl = new URL('/health', apiUrl);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3500);
+    try {
+      const res = await fetch(healthUrl.toString(), {
+        method: 'GET', mode: 'cors', credentials: 'omit',
+        cache: 'no-store', signal: controller.signal
+      });
+      if (res.status === 404) return 'ROUTE-404';
+      if (!res.ok) return 'HEALTH-HTTP';
+      const data = await res.json().catch(() => null);
+      if (data?.service === '68property-leads' && data?.ok === true) return 'POST-CORS';
+      return 'WORKER-OLD';
+    } catch { return 'NET-CORS'; }
+    finally { window.clearTimeout(timeout); }
+  }
+  const isNetworkFailure = (error) =>
+    error instanceof TypeError || /load failed|failed to fetch|networkerror|network request failed|fetch failed/i.test(String(error?.message || ''));
 
   // Turnstile public site key only. The secret key is checked server-side.
   function setupTurnstile() {
@@ -132,6 +170,13 @@
     captchaObserver.observe(form);
   } else { setupTurnstile(); }
 
+  const readyApi = resolveLeadApiEndpoint(config.apiEndpoint);
+  if (readyApi.error) {
+    if (note) { note.hidden = false; note.textContent = 'Biểu mẫu tạm chưa kết nối hệ thống nhận hồ sơ. Vui lòng báo quản trị viên cấu hình URL Cloudflare Worker.'; }
+    submit.disabled = true;
+    setStatus('Biểu mẫu đang bảo trì (mã CONFIG-API). Vui lòng quay lại sau khi hệ thống được cấu hình.');
+  }
+
   const normalizePhone = (input) => {
     let value = input.trim().replace(/[().\s-]/g, '');
     if (value.startsWith('+84')) value = '0' + value.slice(3);
@@ -139,7 +184,7 @@
     return value;
   };
 
-  // The form only sends a minimal, consented payload to the same-origin backend.
+  // The form sends a minimal, consented payload to the configured cross-origin Worker API.
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     setStatus('');
@@ -162,8 +207,9 @@
       $('lead-consent').focus();
       return;
     }
-    if (isPlaceholder(config.apiEndpoint) || !/^https:\/\//i.test(config.apiEndpoint)) {
-      setStatus('Biểu mẫu chưa kết nối máy chủ tư vấn. Vui lòng liên hệ quản trị để hoàn tất cấu hình.');
+    const api = resolveLeadApiEndpoint(config.apiEndpoint);
+    if (api.error) {
+      setStatus(api.error);
       return;
     }
     if (isPlaceholder(config.turnstileSiteKey) || !turnstileLoaded || !window.turnstile) {
@@ -199,7 +245,7 @@
       const timeout = window.setTimeout(() => controller.abort(), 15000);
       let res;
       try {
-        res = await fetch(config.apiEndpoint || '/api/lead', {
+        res = await fetch(api.url, {
           method: 'POST',
           mode: 'cors',
           credentials: 'omit',
@@ -210,11 +256,32 @@
         });
       } finally { window.clearTimeout(timeout); }
       const result = await res.json().catch(() => ({}));
-      if (!res.ok || !result.ok) throw new Error(result.message || 'Gửi yêu cầu không thành công. Vui lòng thử lại sau.');
+      if (res.status === 404) throw new Error('Không tìm thấy đường dẫn API trên Worker. Vào Cloudflare → Edit code, cập nhật worker.js mới, rồi kiểm tra /health.');
+      if (!res.ok || !result.ok) throw new Error(result.message || `Hệ thống trả về HTTP ${res.status}. Vui lòng kiểm tra cấu hình Worker.`);
       setStatus(result.duplicate ? 'Yêu cầu của bạn đã được tiếp nhận trước đó. Bộ phận phụ trách sẽ liên hệ khi xử lý.' : 'Đã gửi yêu cầu thành công. Cảm ơn bạn! Bộ phận phụ trách sẽ liên hệ để trao đổi hồ sơ.', 'success');
       form.reset();
     } catch (error) {
-      setStatus(error?.name === 'AbortError' ? 'Kết nối quá thời gian chờ. Chưa thể xác nhận đã gửi; vui lòng kiểm tra trước khi thử lại.' : (error.message || 'Không thể kết nối tới hệ thống. Vui lòng thử lại.'));
+      if (error?.name === 'AbortError') {
+        setStatus('Kết nối tư vấn quá thời gian chờ (TIMEOUT). Chưa thể xác nhận thông tin đã được tiếp nhận. Vui lòng báo bộ phận phụ trách trước khi gửi lại.');
+      } else if (isNetworkFailure(error)) {
+        const reason = await checkWorkerHealth(api.url);
+        // Never show Safari's raw "Load failed" or leak name/phone in diagnostics.
+        const messages = {
+          'ROUTE-404': 'Worker chưa cập nhật mã mới: /health trả về 404.',
+          'HEALTH-HTTP': 'Worker đang trả lỗi cho /health; cần xem trạng thái triển khai.',
+          'WORKER-OLD': 'Đang kết nối nhầm Worker hoặc Worker chưa cập nhật mã mới.',
+          'POST-CORS': 'Worker có phản hồi /health, nhưng POST bị chặn hoặc ngắt. Kiểm tra CORS/OPTIONS và ALLOWED_ORIGIN.',
+          'NET-CORS': 'Không truy cập được Worker hoặc bị chặn bởi CORS/DNS/mạng. Kiểm tra URL API và ALLOWED_ORIGIN.'
+        };
+        // A failed POST might already have reached Telegram. Do not suggest immediate retries.
+        setStatus('Không thể xác nhận đã gửi yêu cầu (mã ' + reason + '). Vui lòng liên hệ bộ phận tư vấn hoặc kiểm tra lại trước khi gửi lần nữa.');
+        console.warn('[68Property lead transport]', reason, messages[reason]);
+      } else {
+        // Only controlled server messages should appear: do not show arbitrary raw browser errors.
+        const message = String(error?.message || '');
+        setStatus(/^(Không tìm thấy đường dẫn API|Hệ thống trả về HTTP|Gửi yêu cầu không thành công|Chưa |Vui lòng |Hệ thống |Xác minh |Quá nhiều )/.test(message)
+          ? message : 'Không gửi được yêu cầu (mã API-ERROR). Vui lòng báo bộ phận tư vấn kiểm tra.');
+      }
     } finally {
       submit.disabled = false;
       submit.removeAttribute('aria-busy');
